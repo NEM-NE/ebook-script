@@ -1,4 +1,4 @@
-set bookName to "learning_go"
+set bookName to "book"
 set dFolder to "~/Desktop/" & bookName & "/"
 
 do shell script ("mkdir -p " & dFolder)
