@@ -9,10 +9,9 @@
 
 ```
 
-1. script editor를 통해서 kyobo.applescript 열기
-2. kyobo.applescript 내에 있는 page 변수를 설정해줍니다.
-3. kyobo.applescript 내에 있는 screencapture -r option을 입력해줍니다. (캡처할 이미지 지정)
-4. 교보문고 전자도서관 앱에서 캡쳐할 책으로 이동합니다.
+1. 교보문고 전자도서관(app store)에서 캡처하고 싶은 책으로 이동합니다dm.
+2. run-script.sh를 실행합니다.
+3. folder에 저장된 png 파일을 pdf로 변환합니다.
 
 
 ```
