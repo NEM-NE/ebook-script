@@ -36,7 +36,7 @@ read pageLength
 echo "Enter the position (x y w h):"
 read position
 
-declare -A option_strings
+declare -a option_strings
 option_strings[1]="교보도서관"
 option_strings[2]="교보eBook"
 while true; do
