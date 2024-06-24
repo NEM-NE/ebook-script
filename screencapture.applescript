@@ -1,5 +1,3 @@
-# set bookName to "Study_Linux_Structure_With_Practice_And_Picture" # Set your Book Name
-# set pageLength
 on run argv
 	set bookName to item 1 of argv
 	set pageLength to item 2 of argv
@@ -30,11 +28,13 @@ on run argv
 	repeat page times
 		tell application application_name to activate # active to kyobo library
 		tell application "System Events"
-			delay 1
+			delay 1.5
             set formattedNumber to formatNumberWithLeadingZeros(i, 5) of FormattingHelper
 			do shell script ("screencapture -R" & pos & " " & dFolder & bookName & "-" & formattedNumber & ".png") # you have to input X,Y,W,H in -R Option 
 			set i to i + 1
 			key code 124 # move next page
 		end tell
 	end repeat	
+
+    do shell script "bash ./merge.sh " & bookName
 end run

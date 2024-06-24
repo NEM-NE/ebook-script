@@ -1,5 +1,20 @@
 #!/bin/sh
 
+set -o errexit
+set -o nounset
+set -o pipefail
+
+
+if [[ "${DEBUG:-}" == "true" ]]; then
+  set -x
+fi
+
+if [[ "$OSTYPE" != "darwin"* ]]; then
+  echo "This script is only supported on macOS"
+  exit 1
+fi
+
+
 # Function to check if a command exists
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -33,7 +48,6 @@ while true; do
     if [[ ${option_strings[$input_number]+_} ]]; then
         echo "You entered a valid number: ${input_number}"
         application_name=${option_strings[$input_number]}
-        echo "The corresponding string value is: ${string_value}"
         break
     else
         echo "Invalid number. Please try again."
@@ -46,8 +60,4 @@ IFS=' ' read -r pos_x pos_y pos_w pos_h <<< "$position"
 
 mkdir -p ~/Desktop/$bookName
 
-osascript ./kyobo.applescript "$bookName" "$pageLength" "$pos_x" "$pos_y" "$pos_w" "$pos_h" "$application_name"
-
-convert  ~/Desktop/$bookname/*.png "$bookname.pdf"
-
-rm -rf *.png
+osascript ./screencapture.applescript "$bookName" "$pageLength" "$pos_x" "$pos_y" "$pos_w" "$pos_h" "$application_name"
