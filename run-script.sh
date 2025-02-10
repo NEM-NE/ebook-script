@@ -61,3 +61,5 @@ IFS=' ' read -r pos_x pos_y pos_w pos_h <<< "$position"
 mkdir -p ~/Desktop/$bookName
 
 osascript ./screencapture.applescript "$bookName" "$pageLength" "$pos_x" "$pos_y" "$pos_w" "$pos_h" "$application_name"
+
+rm -rf ~/Desktop/$bookName
