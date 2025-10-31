@@ -32,3 +32,6 @@
 
 4. 스크립트가 자동으로 페이지를 넘기면서 캡처를 진행합니다.
 5. 캡처가 완료되면 현재 디렉토리에 PDF 파일이 생성됩니다.
+    완성된 파일의 제목은 다음과 같습니다.
+    - ebook_reader_(설정한 책 제목).pdf
+    - Ex) ebook_reader_bookNameExample.pdf
