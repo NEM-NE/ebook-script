@@ -40,8 +40,10 @@ prefix="ebook_reader_"
 target_dir=~/Desktop/"$prefix$bookName"
 
 # Check duplicated BookName
-if [[ -d "$target_dir" ]]; then
-  echo "A folder with the same name already exists: $target_dir"
+pdf_path="$(pwd)/$prefix$bookName.pdf"
+
+if [[ -f "$pdf_path" ]]; then
+  echo "A PDF with the same name already exists\n:$pdf_path"
   echo "Please choose a different book name."
   exit 1
 fi
