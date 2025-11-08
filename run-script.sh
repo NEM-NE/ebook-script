@@ -29,6 +29,25 @@ fi
 echo "Enter the book name: "
 read bookName
 
+# Check invalid bookName
+if [[ -z "$bookName" ]]; then
+  echo "Error: book name cannot be empty."
+  exit 1
+fi
+
+# Add prefix for safety
+prefix="ebook_reader_"
+target_dir=~/Desktop/"$prefix$bookName"
+
+# Check duplicated BookName
+pdf_path="$(pwd)/$prefix$bookName.pdf"
+
+if [[ -f "$pdf_path" ]]; then
+  echo "A PDF with the same name already exists\n:$pdf_path"
+  echo "Please choose a different book name."
+  exit 1
+fi
+
 echo "Enter the page length: "
 read pageLength
 
@@ -58,8 +77,9 @@ done
 # Parse the position into separate variables
 IFS=' ' read -r pos_x pos_y pos_w pos_h <<< "$position"
 
-mkdir -p ~/Desktop/$bookName
+mkdir -p "$target_dir"
 
-osascript ./screencapture.applescript "$bookName" "$pageLength" "$pos_x" "$pos_y" "$pos_w" "$pos_h" "$application_name"
+osascript ./screencapture.applescript "$prefix$bookName" "$pageLength" "$pos_x" "$pos_y" "$pos_w" "$pos_h" "$application_name"
 
-rm -rf ~/Desktop/$bookName
+# Delete Safely
+rm -rf -- "$target_dir"
