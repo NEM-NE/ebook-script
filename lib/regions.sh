@@ -13,11 +13,20 @@ auto_region() {
   local app="${2:-}"
   local bounds
   if [[ -n "$app" ]]; then
-    bounds="$(osascript -e 'on run argv
-tell application "System Events" to tell (first application process whose name is (item 1 of argv))
+    # Match the process by BUNDLE ID, not display name: process names are
+    # stored NFD-normalized on macOS, so a byte comparison with a
+    # (typically NFC) script constant silently fails for Korean app names.
+    local bundle_id
+    bundle_id="$(osascript -e 'on run argv
+id of application (item 1 of argv)
+end run' "$app" 2>/dev/null)" || bundle_id=""
+    if [[ -n "$bundle_id" ]]; then
+      bounds="$(osascript -e 'on run argv
+tell application "System Events" to tell (first application process whose bundle identifier is (item 1 of argv))
 get {position, size} of front window
 end tell
-end run' "$app" 2>/dev/null)" || bounds=""
+end run' "$bundle_id" 2>/dev/null)" || bounds=""
+    fi
   fi
   if [[ -z "$bounds" ]]; then
     if [[ -n "$app" ]]; then
