@@ -92,6 +92,9 @@ while true; do
 done
 
 
+# Test hook: override the reader app (used by test/smoke.sh to drive Preview)
+application_name="${EBOOK_APP_NAME:-$application_name}"
+
 # Parse the position into separate variables
 IFS=' ' read -r pos_x pos_y pos_w pos_h <<< "$position"
 
