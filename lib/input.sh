@@ -24,10 +24,14 @@ prompt_book() {
 prompt_pages() {
   local pages=""
   while true; do
-    echo "Enter the page length: "
+    echo "Enter the page length (or 'auto' to detect the end automatically): "
     read -r pages
+    if [[ "$pages" == "auto" || "$pages" == "0" ]]; then
+      pages=0
+      break
+    fi
     if ! [[ "$pages" =~ ^[1-9][0-9]*$ ]]; then
-      echo "Error: page length must be a positive number."
+      echo "Error: page length must be a positive number or 'auto'."
       continue
     fi
     break
@@ -38,8 +42,13 @@ prompt_pages() {
 prompt_region() {
   local pos=""
   while true; do
-    echo "Enter the position (x y w h):"
+    echo "Enter the position (x y w h), or 'auto' to use the frontmost window:"
     read -r pos
+    if [[ "$pos" == "auto" ]]; then
+      pos="$(auto_region "${REGION_MARGIN:-10}")"
+      echo "Auto-detected region: $pos"
+      break
+    fi
     if ! [[ "$pos" =~ ^[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+$ ]]; then
       echo "Error: position must be 4 numbers separated by spaces (x y w h)."
       continue

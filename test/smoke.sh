@@ -26,8 +26,10 @@ BOOK_PDF="$WORK/smokebook.pdf"
 # Raw book names: run-script.sh prepends the "ebook_reader_" prefix itself
 FULL_NAME="smoke_full"
 INTR_NAME="smoke_intr"
+AUTO_NAME="smoke_auto"
 FULL_OUT="ebook_reader_$FULL_NAME"
 INTR_OUT="ebook_reader_$INTR_NAME"
+AUTO_OUT="ebook_reader_$AUTO_NAME"
 FAILED=0
 
 pass() { echo "[PASS] $1"; }
@@ -37,7 +39,7 @@ cleanup() {
   # Close only the windows this test opened, then quit Preview if idle
   osascript -e 'tell application "Preview" to close (every window whose name contains "smokebook")' >/dev/null 2>&1 || true
   osascript -e 'tell application "Preview" to if (count of windows) is 0 then quit' >/dev/null 2>&1 || true
-  rm -rf "$WORK" "$HOME/Desktop/$FULL_OUT" "$HOME/Desktop/$INTR_OUT" 2>/dev/null || true
+  rm -rf "$WORK" "$HOME/Desktop/$FULL_OUT" "$HOME/Desktop/$INTR_OUT" "$HOME/Desktop/$AUTO_OUT" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -109,9 +111,8 @@ PID2=$!
 sleep 7
 PAGES_AT_KILL="$(count_pngs "$INTR_OUT")"
 kill -INT "$PID2" 2>/dev/null || true
-# A terminal Ctrl-C signals the whole foreground group; a bare kill hits only
-# the script, so also signal the osascript child explicitly.
-pkill -INT -f "screencapture.applescript" 2>/dev/null || true
+# The capture loop now lives in bash itself (no long-running osascript
+# child), so signaling the script directly is enough to trigger the trap.
 RC=0
 wait "$PID2" 2>/dev/null || RC=$?
 echo "== interrupted after ~$PAGES_AT_KILL page(s), exit code $RC"
@@ -120,7 +121,33 @@ if [[ -f "$WORK/intr/$INTR_OUT.pdf" ]]; then pass "partial PDF created"; else fa
 if [[ -s "$WORK/intr/$INTR_OUT.pdf" ]]; then pass "partial PDF non-empty"; else fail "partial PDF empty"; fi
 if [[ -e "$HOME/Desktop/$INTR_OUT" ]]; then fail "temp dir left behind (intr)"; else pass "temp dir cleaned (intr)"; fi
 
-# --- 5. Summary --------------------------------------------------------------
+# --- 5. TEST 3: auto page count (end-of-book detection) ----------------------
+echo "== TEST 3: --pages auto (end-of-book stop)"
+# Fresh copy → Preview opens it at page 1 (no saved position)
+cp "$BOOK_PDF" "$WORK/smokebook_auto.pdf"
+open -a Preview "$WORK/smokebook_auto.pdf"
+sleep 3
+( cd "$WORK" && exec env EBOOK_APP_NAME=Preview "$ROOT/bin/ebook-capture" \
+    --book "$AUTO_NAME" --pages auto --region "$POS" --app 1 \
+    >/dev/null 2>&1 ) &
+PID3=$!
+MAXA=0
+while kill -0 "$PID3" 2>/dev/null; do
+  C="$(count_pngs "$AUTO_OUT")"
+  if [[ "$C" -gt "$MAXA" ]]; then MAXA="$C"; fi
+  sleep 0.2
+done
+wait "$PID3" 2>/dev/null || true
+
+if [[ -f "$WORK/$AUTO_OUT.pdf" ]]; then pass "auto PDF created"; else fail "auto PDF missing"; fi
+if [[ "$MAXA" -ge "$PAGES" ]]; then
+  pass "auto-stop captured $MAXA pages (>= $PAGES)"
+else
+  fail "auto-stop captured only $MAXA/$PAGES pages"
+fi
+if [[ -e "$HOME/Desktop/$AUTO_OUT" ]]; then fail "temp dir left behind (auto)"; else pass "temp dir cleaned (auto)"; fi
+
+# --- 6. Summary --------------------------------------------------------------
 echo
 if [[ "$FAILED" -eq 0 ]]; then
   echo "SMOKE: ALL PASS"
