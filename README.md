@@ -35,3 +35,14 @@
     완성된 파일의 제목은 다음과 같습니다.
     - ebook_reader_(설정한 책 제목).pdf
     - Ex) ebook_reader_bookNameExample.pdf
+
+## 테스트
+
+개발/변경 시 두 계층의 E2E 테스트를 사용합니다:
+
+```bash
+bash test/smoke.sh       # 자동 (Preview 대역): 전체 실행 + Ctrl-C 부분 병합 검증
+bash test/real-e2e.sh    # 반자동 (실제 교보 앱): 릴리스 전 확인 게이트
+```
+
+자세한 프로세스와 권한 설정은 [test/README.md](test/README.md)를 참고하세요.
