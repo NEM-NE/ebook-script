@@ -45,7 +45,7 @@ prompt_region() {
     echo "Enter the position (x y w h), or 'auto' to use the frontmost window:"
     read -r pos
     if [[ "$pos" == "auto" ]]; then
-      pos="$(auto_region "${REGION_MARGIN:-10}")"
+      pos="$(auto_region "${REGION_MARGIN:-10}" "${APP_NAME:-}")"
       echo "Auto-detected region: $pos"
       break
     fi

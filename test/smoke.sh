@@ -80,9 +80,9 @@ POS="$((wx+m)) $((wy+m)) $((ww-2*m)) $((wh-2*m))"
 echo "== capture region (x y w h): $POS"
 
 # --- 3. TEST 1: full run via the CLI flag interface --------------------------
-echo "== TEST 1: full $PAGES-page run (CLI flags)"
+echo "== TEST 1: full $PAGES-page run (CLI flags, --region auto)"
 ( cd "$WORK" && exec env EBOOK_APP_NAME=Preview "$ROOT/bin/ebook-capture" \
-    --book "$FULL_NAME" --pages "$PAGES" --region "$POS" --app 1 \
+    --book "$FULL_NAME" --pages "$PAGES" --region auto --app 1 \
     >/dev/null 2>&1 ) &
 PID1=$!
 MAX=0
@@ -106,7 +106,8 @@ if [[ -e "$HOME/Desktop/$FULL_OUT" ]]; then fail "temp dir left behind (full)"; 
 # --- 4. TEST 2: SIGINT mid-run ----------------------------------------------
 echo "== TEST 2: SIGINT mid-run"
 mkdir -p "$WORK/intr"
-printf '%s\n' "$INTR_NAME" "$PAGES" "$POS" 1 > "$WORK/intr/input.txt"
+# Prompt order is book -> pages -> app -> region; feed lines accordingly
+printf '%s\n' "$INTR_NAME" "$PAGES" 1 "$POS" > "$WORK/intr/input.txt"
 ( cd "$WORK/intr" && exec env EBOOK_APP_NAME=Preview "$ROOT/run-script.sh" < input.txt >/dev/null 2>&1 ) &
 PID2=$!
 sleep 7

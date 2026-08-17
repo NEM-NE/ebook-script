@@ -4,14 +4,29 @@
 
 REGIONS_CONF="${REGIONS_CONF:-$HOME/.config/ebook-script/regions.conf}"
 
-# Echo "x y w h" derived from the frontmost window minus $1 (margin, default 10).
-# The viewer must be frontmost when this runs.
+# Echo "x y w h" for the reader window minus $1 (margin, default 10).
+# With $2 (app name), the front window of THAT application process is used —
+# so the terminal the command was typed in is never captured by accident.
+# Without $2, falls back to the frontmost window.
 auto_region() {
   local margin="${1:-10}"
+  local app="${2:-}"
   local bounds
-  bounds="$(osascript -e 'tell application "System Events" to get {position, size} of front window of (first application process whose frontmost is true)')"
+  if [[ -n "$app" ]]; then
+    bounds="$(osascript -e 'on run argv
+tell application "System Events" to tell (first application process whose name is (item 1 of argv))
+get {position, size} of front window
+end tell
+end run' "$app" 2>/dev/null)" || bounds=""
+  fi
   if [[ -z "$bounds" ]]; then
-    die "cannot read the frontmost window. Grant Accessibility permission to your terminal, and make sure the reader is frontmost."
+    if [[ -n "$app" ]]; then
+      die "cannot find an open window of '$app'. Open the reader and a book first, then retry."
+    fi
+    bounds="$(osascript -e 'tell application "System Events" to get {position, size} of front window of (first application process whose frontmost is true)')"
+    if [[ -z "$bounds" ]]; then
+      die "cannot read the frontmost window. Grant Accessibility permission to your terminal."
+    fi
   fi
   local wx wy ww wh
   read -r wx wy ww wh <<<"$(echo "$bounds" | tr ',' ' ')"

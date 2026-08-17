@@ -66,21 +66,12 @@ if interactive; then
   read -r -p "준비되면 Enter... " < /dev/tty
 fi
 
-# --- 1. Derive the capture region from the frontmost window -----------------
-BOUNDS="$(osascript -e 'tell application "System Events" to get {position, size} of front window of (first application process whose frontmost is true)')"
-if [[ -z "$BOUNDS" ]]; then
-  echo "ERROR: cannot read the frontmost window." >&2
-  echo "Grant Accessibility permission to your terminal app, then retry." >&2
-  exit 1
-fi
-echo "== frontmost window (x, y, w, h): $BOUNDS"
-read -r wx wy ww wh <<<"$(echo "$BOUNDS" | tr ',' ' ')"
-POS="$((wx+MARGIN)) $((wy+MARGIN)) $((ww-2*MARGIN)) $((wh-2*MARGIN))"
-echo "== capture region (x y w h): $POS"
-
-# --- 2. Run the real pipeline ------------------------------------------------
+# --- 1/2. Run the real pipeline (--region auto targets the reader window) ---
+# The tool derives the region from the reader app's own window, so the
+# terminal running this test can never become the capture target.
 mkdir -p "$RUNDIR"
-( cd "$RUNDIR" && exec "$ROOT/run-script.sh" < <(printf '%s\n' "$NAME" "$PAGES" "$POS" "$APP") ) &
+( cd "$RUNDIR" && exec "$ROOT/bin/ebook-capture" \
+    --book "$NAME" --pages "$PAGES" --region auto --region-margin "$MARGIN" --app "$APP" ) &
 PID=$!
 MAX=0
 while kill -0 "$PID" 2>/dev/null; do

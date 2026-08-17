@@ -34,7 +34,7 @@ Usage:
 Options:
   --book NAME          책 이름 (PDF 파일명으로 사용)
   --pages N            총 페이지 수. auto 로 주면 끝까지 (마지막 페이지 자동 감지)
-  --region SPEC        캡처 영역: "x y w h" 좌표 | auto (전경 창에서 자동) |
+  --region SPEC        캡처 영역: "x y w h" 좌표 | auto (리더 앱 창에서 자동) |
                        저장한 프리셋 이름
   --region-margin N    auto 영역의 창 가장자리 여백 px (기본 10)
   --app APP            1 | library (교보도서관) 또는 2 | ebook (교보eBook)
@@ -96,17 +96,9 @@ if [[ -n "$APP_FLAG" ]]; then
   APP_NAME="$(resolve_app_name "$APP_FLAG")" || die "unknown --app value: $APP_FLAG (use 1|2|library|ebook)"
 fi
 
-# Resolve the region: literal coords | auto (frontmost window) | preset name
-if [[ -n "$REGION" ]]; then
-  if [[ "$REGION" == "auto" ]]; then
-    REGION="$(auto_region "$REGION_MARGIN")"
-  elif ! validate_region_quiet "$REGION"; then
-    REGION="$(load_region_preset "$REGION")"
-  fi
-fi
-
-# Prompt for whatever is missing (interactive fallback).
-# On --resume, pre-fill region/app from the unfinished run's stored values.
+# Prompt for missing basics. App resolves BEFORE the region so that
+# --region auto can target the reader app's window (typing the command
+# in a terminal must never make the terminal the capture target).
 [[ -n "$BOOK" ]] || prompt_book
 if [[ "$RESUME" == "1" ]]; then
   state_file="$HOME/Desktop/$PREFIX$BOOK/region.txt"
@@ -117,15 +109,24 @@ if [[ "$RESUME" == "1" ]]; then
   fi
 fi
 [[ -n "$PAGES" ]] || prompt_pages
-[[ -n "$REGION" ]] || prompt_region
 [[ -n "$APP_NAME" ]] || prompt_app
+
+# Test hook: override the reader app (used by test/smoke.sh to drive Preview)
+APP_NAME="${EBOOK_APP_NAME:-$APP_NAME}"
+
+# Resolve the region: literal coords | auto (reader window) | preset name
+if [[ -n "$REGION" ]]; then
+  if [[ "$REGION" == "auto" ]]; then
+    REGION="$(auto_region "$REGION_MARGIN" "$APP_NAME")"
+  elif ! validate_region_quiet "$REGION"; then
+    REGION="$(load_region_preset "$REGION")"
+  fi
+fi
+[[ -n "$REGION" ]] || prompt_region
 
 # Save the region actually used as a preset, if requested
 if [[ -n "$SAVE_REGION" ]]; then
   save_region_preset "$SAVE_REGION" "$REGION"
 fi
-
-# Test hook: override the reader app (used by test/smoke.sh to drive Preview)
-APP_NAME="${EBOOK_APP_NAME:-$APP_NAME}"
 
 run_capture
