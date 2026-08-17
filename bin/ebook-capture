@@ -37,6 +37,8 @@ Options:
   --region SPEC        캡처 영역: "x y w h" 좌표 | auto (리더 앱 창에서 자동) |
                        저장한 프리셋 이름
   --region-margin N    auto 영역의 창 가장자리 여백 px (기본 10)
+  --region-margin-top N  auto 영역의 위쪽 여백을 따로 지정 — 리더의
+                       제목/도구 모음 바를 제외할 때 사용
   --app APP            1 | library (교보도서관) 또는 2 | ebook (교보eBook)
   --save-region NAME   이번 실행에 사용된 영역을 프리셋으로 저장
   --list-regions       저장된 영역 프리셋 목록 출력
@@ -57,14 +59,15 @@ EOF
 }
 
 BOOK="" PAGES="" REGION="" APP_FLAG="" APP_NAME=""
-REGION_MARGIN=10 SAVE_REGION="" LIST_REGIONS=0
+REGION_MARGIN=10 REGION_MARGIN_TOP="" SAVE_REGION="" LIST_REGIONS=0
 RESUME=0 RESIZE="" GRAY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --book)          BOOK="$2"; shift 2 ;;
-    --pages)         PAGES="$2"; shift 2 ;;
-    --region)        REGION="$2"; shift 2 ;;
-    --region-margin) REGION_MARGIN="$2"; shift 2 ;;
+    --book)              BOOK="$2"; shift 2 ;;
+    --pages)             PAGES="$2"; shift 2 ;;
+    --region)            REGION="$2"; shift 2 ;;
+    --region-margin)     REGION_MARGIN="$2"; shift 2 ;;
+    --region-margin-top) REGION_MARGIN_TOP="$2"; shift 2 ;;
     --app)           APP_FLAG="$2"; shift 2 ;;
     --save-region)   SAVE_REGION="$2"; shift 2 ;;
     --list-regions)  LIST_REGIONS=1; shift ;;
@@ -117,7 +120,7 @@ APP_NAME="${EBOOK_APP_NAME:-$APP_NAME}"
 # Resolve the region: literal coords | auto (reader window) | preset name
 if [[ -n "$REGION" ]]; then
   if [[ "$REGION" == "auto" ]]; then
-    REGION="$(auto_region "$REGION_MARGIN" "$APP_NAME")"
+    REGION="$(auto_region "$REGION_MARGIN" "$APP_NAME" "${REGION_MARGIN_TOP:-}")"
   elif ! validate_region_quiet "$REGION"; then
     REGION="$(load_region_preset "$REGION")"
   fi

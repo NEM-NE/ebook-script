@@ -4,12 +4,14 @@
 
 REGIONS_CONF="${REGIONS_CONF:-$HOME/.config/ebook-script/regions.conf}"
 
-# Echo "x y w h" for the reader window minus $1 (margin, default 10).
-# With $2 (app name), the front window of THAT application process is used —
-# so the terminal the command was typed in is never captured by accident.
-# Without $2, falls back to the frontmost window.
+# Echo "x y w h" for the reader window minus margins.
+#   $1 = margin (all sides, default 10)
+#   $2 = app name → target that app's window (see NFD note inside);
+#       empty falls back to the frontmost window
+#   $3 = top margin override — excludes the reader's title/tool bar
 auto_region() {
   local margin="${1:-10}"
+  local top="${3:-$margin}"
   local app="${2:-}"
   local bounds
   if [[ -n "$app" ]]; then
@@ -39,7 +41,7 @@ end run' "$bundle_id" 2>/dev/null)" || bounds=""
   fi
   local wx wy ww wh
   read -r wx wy ww wh <<<"$(echo "$bounds" | tr ',' ' ')"
-  echo "$((wx+margin)) $((wy+margin)) $((ww-2*margin)) $((wh-2*margin))"
+  echo "$((wx+margin)) $((wy+top)) $((ww-2*margin)) $((wh-top-margin))"
 }
 
 # Echo the stored region for preset $1, or fail.
