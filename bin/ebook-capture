@@ -40,6 +40,10 @@ Options:
   --app APP            1 | library (교보도서관) 또는 2 | ebook (교보eBook)
   --save-region NAME   이번 실행에 사용된 영역을 프리셋으로 저장
   --list-regions       저장된 영역 프리셋 목록 출력
+  --resume             중단됐던 캡처를 이어서 (마지막 페이지 다음부터, 저장된
+                       영역 자동 재사용)
+  --resize N           후처리: PNG를 N%로 축소 (예: --resize 50)
+  --gray               후처리: 흑백 변환 (파일 크기 절감)
   -h, --help           이 도움말
 
 지정되지 않은 옵션은 대화형으로 물어봅니다. 플래그 없이 실행하면
@@ -54,6 +58,7 @@ EOF
 
 BOOK="" PAGES="" REGION="" APP_FLAG="" APP_NAME=""
 REGION_MARGIN=10 SAVE_REGION="" LIST_REGIONS=0
+RESUME=0 RESIZE="" GRAY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --book)          BOOK="$2"; shift 2 ;;
@@ -63,6 +68,9 @@ while [[ $# -gt 0 ]]; do
     --app)           APP_FLAG="$2"; shift 2 ;;
     --save-region)   SAVE_REGION="$2"; shift 2 ;;
     --list-regions)  LIST_REGIONS=1; shift ;;
+    --resume)        RESUME=1; shift ;;
+    --resize)        RESIZE="$2"; [[ "$RESIZE" =~ ^[0-9]+%?$ ]] || die "--resize expects N or N%"; [[ "$RESIZE" == *% ]] || RESIZE="$RESIZE%"; shift 2 ;;
+    --gray)          GRAY=1; shift ;;
     -h|--help)       usage; exit 0 ;;
     *)               echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -97,9 +105,18 @@ if [[ -n "$REGION" ]]; then
   fi
 fi
 
-# Prompt for whatever is missing (interactive fallback)
-[[ -n "$BOOK"   ]] || prompt_book
-[[ -n "$PAGES"  ]] || prompt_pages
+# Prompt for whatever is missing (interactive fallback).
+# On --resume, pre-fill region/app from the unfinished run's stored values.
+[[ -n "$BOOK" ]] || prompt_book
+if [[ "$RESUME" == "1" ]]; then
+  state_file="$HOME/Desktop/$PREFIX$BOOK/region.txt"
+  if [[ -f "$state_file" ]]; then
+    if [[ -z "$REGION" ]]; then REGION="$(sed -n 1p "$state_file")"; fi
+    stored_app="$(sed -n 2p "$state_file")"
+    if [[ -z "$APP_NAME" && -n "$stored_app" ]]; then APP_NAME="$stored_app"; fi
+  fi
+fi
+[[ -n "$PAGES" ]] || prompt_pages
 [[ -n "$REGION" ]] || prompt_region
 [[ -n "$APP_NAME" ]] || prompt_app
 

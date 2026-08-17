@@ -44,8 +44,9 @@ cleanup() {
 trap cleanup EXIT
 
 # Count captured PNGs without tripping errexit/pipefail when none exist yet
+# Count committed pages only (pending.png is an in-flight scratch file)
 count_pngs() {
-  ls -1 "$HOME/Desktop/$1" 2>/dev/null | grep -c '\.png$' || true
+  ls -1 "$HOME/Desktop/$1" 2>/dev/null | grep -c -- '-[0-9]*\.png$' || true
 }
 
 # --- 1. Build a numbered 10-page test book ---------------------------------
@@ -110,25 +111,65 @@ printf '%s\n' "$INTR_NAME" "$PAGES" "$POS" 1 > "$WORK/intr/input.txt"
 PID2=$!
 sleep 7
 PAGES_AT_KILL="$(count_pngs "$INTR_OUT")"
-kill -INT "$PID2" 2>/dev/null || true
-# The capture loop now lives in bash itself (no long-running osascript
-# child), so signaling the script directly is enough to trigger the trap.
+kill -TERM "$PID2" 2>/dev/null || true
+pkill -TERM -P "$PID2" 2>/dev/null || true
+# Why TERM, not INT: a non-interactive shell that backgrounds a job leaves
+# the child's SIGINT ignored-at-startup (untrappable by bash), so kill -INT
+# from this harness would be silently discarded and the run complete
+# normally. SIGTERM reaches the same trap handler (INT TERM) and exercises
+# the partial-merge + resume path; a real terminal Ctrl-C hits INT with a
+# normal disposition, which the handler also covers.
 RC=0
 wait "$PID2" 2>/dev/null || RC=$?
 echo "== interrupted after ~$PAGES_AT_KILL page(s), exit code $RC"
 
 if [[ -f "$WORK/intr/$INTR_OUT.pdf" ]]; then pass "partial PDF created"; else fail "partial PDF missing"; fi
 if [[ -s "$WORK/intr/$INTR_OUT.pdf" ]]; then pass "partial PDF non-empty"; else fail "partial PDF empty"; fi
-if [[ -e "$HOME/Desktop/$INTR_OUT" ]]; then fail "temp dir left behind (intr)"; else pass "temp dir cleaned (intr)"; fi
+if [[ -d "$HOME/Desktop/$INTR_OUT" ]] && ls "$HOME/Desktop/$INTR_OUT"/*.png >/dev/null 2>&1; then
+  pass "PNG dir kept for resume (intr)"
+else
+  fail "PNG dir missing — cannot resume (intr)"
+fi
 
-# --- 5. TEST 3: auto page count (end-of-book detection) ----------------------
-echo "== TEST 3: --pages auto (end-of-book stop)"
+# --- 4b. TEST 2b: resume the interrupted run to completion --------------------
+echo "== TEST 2b: --resume completes the book"
+# region/app intentionally omitted — resume must reuse the stored values
+( cd "$WORK/intr" && exec env EBOOK_APP_NAME=Preview "$ROOT/bin/ebook-capture" \
+    --book "$INTR_NAME" --pages "$PAGES" --resume > resume.log 2>&1 ) &
+PID2B=$!
+MAXR=0
+while kill -0 "$PID2B" 2>/dev/null; do
+  C="$(count_pngs "$INTR_OUT")"
+  if [[ "$C" -gt "$MAXR" ]]; then MAXR="$C"; fi
+  sleep 0.2
+done
+wait "$PID2B" 2>/dev/null || true
+echo "--- resume log ---"
+cat "$WORK/intr/resume.log" 2>/dev/null || true
+
+if [[ -f "$WORK/intr/$INTR_OUT.pdf" ]]; then pass "resumed PDF created"; else fail "resumed PDF missing"; fi
+# Preview's arrow key scrolls fractionally and swallows key events around
+# focus changes, so "how many more pages" is stand-in-dependent. What must
+# hold: resume detected the last committed page and continued from there.
+# Exact per-page resume progression is verified by real-e2e (discrete paging).
+if grep -q "Resuming from page" "$WORK/intr/resume.log" 2>/dev/null; then
+  pass "resume detected prior pages: $(grep -m1 'Resuming from' "$WORK/intr/resume.log")"
+else
+  fail "resume did not detect prior pages"
+fi
+if [[ "$MAXR" -gt "$PAGES_AT_KILL" ]]; then
+  echo "  (note: resume also progressed $PAGES_AT_KILL -> $MAXR pages)"
+fi
+if [[ -e "$HOME/Desktop/$INTR_OUT" ]]; then fail "temp dir left behind (resume)"; else pass "temp dir cleaned (resume)"; fi
+
+# --- 5. TEST 3: auto page count + post-processing -----------------------------
+echo "== TEST 3: --pages auto (end-of-book stop) + --resize 50"
 # Fresh copy → Preview opens it at page 1 (no saved position)
 cp "$BOOK_PDF" "$WORK/smokebook_auto.pdf"
 open -a Preview "$WORK/smokebook_auto.pdf"
 sleep 3
 ( cd "$WORK" && exec env EBOOK_APP_NAME=Preview "$ROOT/bin/ebook-capture" \
-    --book "$AUTO_NAME" --pages auto --region "$POS" --app 1 \
+    --book "$AUTO_NAME" --pages auto --region "$POS" --app 1 --resize 50 \
     >/dev/null 2>&1 ) &
 PID3=$!
 MAXA=0
