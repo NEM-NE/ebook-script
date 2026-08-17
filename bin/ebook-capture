@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ebook-capture — CLI entry point.
+#
+# Flag mode (non-interactive when all required flags are given):
+#   bin/ebook-capture --book "책이름" --pages 120 --region "100 100 800 600" --app 1
+#
+# Interactive mode: run without flags; missing parameters are prompted.
+# run-script.sh remains as a backward-compatible wrapper.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${DEBUG:-}" == "true" ]]; then
+  set -x
+fi
+
+# shellcheck source=../lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
+# shellcheck source=../lib/input.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/input.sh"
+# shellcheck source=../lib/capture.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/capture.sh"
+
+usage() {
+  cat <<'EOF'
+ebook-capture — 교보문고 전자도서관 Ebook 캡처 스크립트
+
+Usage:
+  ebook-capture --book NAME --pages N --region "x y w h" --app APP
+
+Options:
+  --book NAME    책 이름 (PDF 파일명으로 사용)
+  --pages N      총 페이지 수
+  --region XYWH  캡처 영역 좌표, "x y w h" 형식
+  --app APP      1 | library (교보도서관) 또는 2 | ebook (교보eBook)
+  -h, --help     이 도움말
+
+지정되지 않은 옵션은 대화형으로 물어봅니다. 플래그 없이 실행하면
+기존 run-script.sh와 동일한 대화형 모드로 동작합니다.
+
+Env:
+  EBOOK_APP_NAME  앱 이름 직접 오버라이드 (테스트/기타 리더용)
+  DEBUG=true      실행 명령 추적 출력
+EOF
+}
+
+BOOK="" PAGES="" REGION="" APP_FLAG="" APP_NAME=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --book)    BOOK="$2"; shift 2 ;;
+    --pages)   PAGES="$2"; shift 2 ;;
+    --region)  REGION="$2"; shift 2 ;;
+    --app)     APP_FLAG="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *)         echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+check_environment
+
+# Validate flag values up front (fail fast, before any prompts)
+[[ -z "$BOOK"   ]] || validate_book_name "$BOOK"
+[[ -z "$PAGES"  ]] || validate_pages "$PAGES"
+[[ -z "$REGION" ]] || validate_region "$REGION"
+if [[ -n "$APP_FLAG" ]]; then
+  APP_NAME="$(resolve_app_name "$APP_FLAG")" || die "unknown --app value: $APP_FLAG (use 1|2|library|ebook)"
+fi
+
+# Prompt for whatever is missing (interactive fallback)
+[[ -n "$BOOK"   ]] || prompt_book
+[[ -n "$PAGES"  ]] || prompt_pages
+[[ -n "$REGION" ]] || prompt_region
+[[ -n "$APP_NAME" ]] || prompt_app
+
+# Test hook: override the reader app (used by test/smoke.sh to drive Preview)
+APP_NAME="${EBOOK_APP_NAME:-$APP_NAME}"
+
+run_capture

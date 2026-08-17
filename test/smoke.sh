@@ -76,10 +76,11 @@ m=60
 POS="$((wx+m)) $((wy+m)) $((ww-2*m)) $((wh-2*m))"
 echo "== capture region (x y w h): $POS"
 
-# --- 3. TEST 1: full run ----------------------------------------------------
-echo "== TEST 1: full $PAGES-page run"
-printf '%s\n' "$FULL_NAME" "$PAGES" "$POS" 1 > "$WORK/input_full.txt"
-( cd "$WORK" && exec env EBOOK_APP_NAME=Preview "$ROOT/run-script.sh" < input_full.txt >/dev/null 2>&1 ) &
+# --- 3. TEST 1: full run via the CLI flag interface --------------------------
+echo "== TEST 1: full $PAGES-page run (CLI flags)"
+( cd "$WORK" && exec env EBOOK_APP_NAME=Preview "$ROOT/bin/ebook-capture" \
+    --book "$FULL_NAME" --pages "$PAGES" --region "$POS" --app 1 \
+    >/dev/null 2>&1 ) &
 PID1=$!
 MAX=0
 while kill -0 "$PID1" 2>/dev/null; do
