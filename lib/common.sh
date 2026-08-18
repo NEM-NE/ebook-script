@@ -25,12 +25,18 @@ validate_book_name() {
 }
 
 validate_pages() {
-  [[ "$1" =~ ^[1-9][0-9]*$ ]] || die "page count must be a positive number (got: $1)"
+  # 0 means "auto": capture until the end-of-book auto-stop
+  [[ "$1" =~ ^([1-9][0-9]*|0)$ ]] || die "page count must be a positive number or auto (got: $1)"
 }
 
 validate_region() {
   [[ "$1" =~ ^[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+$ ]] \
     || die "region must be 4 numbers separated by spaces (x y w h)"
+}
+
+# Same check as validate_region but returns non-zero instead of exiting.
+validate_region_quiet() {
+  [[ "$1" =~ ^[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+$ ]]
 }
 
 # Map a user-facing app selector to the macOS application name.

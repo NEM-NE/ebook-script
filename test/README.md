@@ -1,7 +1,8 @@
 # 테스트 프로세스
 
 이 레포는 두 계층의 E2E 테스트를 유지한다. 둘 다 실제 파이프라인
-(`run-script.sh` → `screencapture.applescript` → `merge.sh`)을 그대로 돌린다.
+(`bin/ebook-capture` → 적응형 캡처 루프(`lib/capture.sh`) → `merge.sh`)을
+그대로 돌린다.
 
 | 테스트 | 대상 | 자동화 | 언제 |
 |--------|------|--------|------|

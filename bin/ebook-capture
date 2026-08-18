@@ -17,6 +17,8 @@ fi
 
 # shellcheck source=../lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
+# shellcheck source=../lib/regions.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/regions.sh"
 # shellcheck source=../lib/input.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/input.sh"
 # shellcheck source=../lib/capture.sh
@@ -30,14 +32,25 @@ Usage:
   ebook-capture --book NAME --pages N --region "x y w h" --app APP
 
 Options:
-  --book NAME    책 이름 (PDF 파일명으로 사용)
-  --pages N      총 페이지 수
-  --region XYWH  캡처 영역 좌표, "x y w h" 형식
-  --app APP      1 | library (교보도서관) 또는 2 | ebook (교보eBook)
-  -h, --help     이 도움말
+  --book NAME          책 이름 (PDF 파일명으로 사용)
+  --pages N            총 페이지 수. auto 로 주면 끝까지 (마지막 페이지 자동 감지)
+  --region SPEC        캡처 영역: "x y w h" 좌표 | auto (리더 앱 창에서 자동) |
+                       저장한 프리셋 이름
+  --region-margin N    auto 영역의 창 가장자리 여백 px (기본 10)
+  --region-margin-top N  auto 영역의 위쪽 여백을 따로 지정 — 리더의
+                       제목/도구 모음 바를 제외할 때 사용
+  --app APP            1 | library (교보도서관) 또는 2 | ebook (교보eBook)
+  --save-region NAME   이번 실행에 사용된 영역을 프리셋으로 저장
+  --list-regions       저장된 영역 프리셋 목록 출력
+  --resume             중단됐던 캡처를 이어서 (마지막 페이지 다음부터, 저장된
+                       영역 자동 재사용)
+  --resize N           후처리: PNG를 N%로 축소 (예: --resize 50)
+  --gray               후처리: 흑백 변환 (파일 크기 절감)
+  -h, --help           이 도움말
 
 지정되지 않은 옵션은 대화형으로 물어봅니다. 플래그 없이 실행하면
 기존 run-script.sh와 동일한 대화형 모드로 동작합니다.
+페이지 넘김은 프레임 비교로 적응형 진행됩니다.
 
 Env:
   EBOOK_APP_NAME  앱 이름 직접 오버라이드 (테스트/기타 리더용)
@@ -46,34 +59,77 @@ EOF
 }
 
 BOOK="" PAGES="" REGION="" APP_FLAG="" APP_NAME=""
+REGION_MARGIN=10 REGION_MARGIN_TOP="" SAVE_REGION="" LIST_REGIONS=0
+RESUME=0 RESIZE="" GRAY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --book)    BOOK="$2"; shift 2 ;;
-    --pages)   PAGES="$2"; shift 2 ;;
-    --region)  REGION="$2"; shift 2 ;;
-    --app)     APP_FLAG="$2"; shift 2 ;;
-    -h|--help) usage; exit 0 ;;
-    *)         echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+    --book)              BOOK="$2"; shift 2 ;;
+    --pages)             PAGES="$2"; shift 2 ;;
+    --region)            REGION="$2"; shift 2 ;;
+    --region-margin)     REGION_MARGIN="$2"; shift 2 ;;
+    --region-margin-top) REGION_MARGIN_TOP="$2"; shift 2 ;;
+    --app)           APP_FLAG="$2"; shift 2 ;;
+    --save-region)   SAVE_REGION="$2"; shift 2 ;;
+    --list-regions)  LIST_REGIONS=1; shift ;;
+    --resume)        RESUME=1; shift ;;
+    --resize)        RESIZE="$2"; [[ "$RESIZE" =~ ^[0-9]+%?$ ]] || die "--resize expects N or N%"; [[ "$RESIZE" == *% ]] || RESIZE="$RESIZE%"; shift 2 ;;
+    --gray)          GRAY=1; shift ;;
+    -h|--help)       usage; exit 0 ;;
+    *)               echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 
+if [[ "$LIST_REGIONS" == "1" ]]; then
+  list_region_presets
+  exit 0
+fi
+
 check_environment
+
+# "auto" pages → capture until the end-of-book auto-stop
+if [[ "$PAGES" == "auto" || "$PAGES" == "0" ]]; then
+  PAGES=0
+fi
 
 # Validate flag values up front (fail fast, before any prompts)
 [[ -z "$BOOK"   ]] || validate_book_name "$BOOK"
 [[ -z "$PAGES"  ]] || validate_pages "$PAGES"
-[[ -z "$REGION" ]] || validate_region "$REGION"
+[[ -z "$REGION" ]] || true
 if [[ -n "$APP_FLAG" ]]; then
   APP_NAME="$(resolve_app_name "$APP_FLAG")" || die "unknown --app value: $APP_FLAG (use 1|2|library|ebook)"
 fi
 
-# Prompt for whatever is missing (interactive fallback)
-[[ -n "$BOOK"   ]] || prompt_book
-[[ -n "$PAGES"  ]] || prompt_pages
-[[ -n "$REGION" ]] || prompt_region
+# Prompt for missing basics. App resolves BEFORE the region so that
+# --region auto can target the reader app's window (typing the command
+# in a terminal must never make the terminal the capture target).
+[[ -n "$BOOK" ]] || prompt_book
+if [[ "$RESUME" == "1" ]]; then
+  state_file="$HOME/Desktop/$PREFIX$BOOK/region.txt"
+  if [[ -f "$state_file" ]]; then
+    if [[ -z "$REGION" ]]; then REGION="$(sed -n 1p "$state_file")"; fi
+    stored_app="$(sed -n 2p "$state_file")"
+    if [[ -z "$APP_NAME" && -n "$stored_app" ]]; then APP_NAME="$stored_app"; fi
+  fi
+fi
+[[ -n "$PAGES" ]] || prompt_pages
 [[ -n "$APP_NAME" ]] || prompt_app
 
 # Test hook: override the reader app (used by test/smoke.sh to drive Preview)
 APP_NAME="${EBOOK_APP_NAME:-$APP_NAME}"
+
+# Resolve the region: literal coords | auto (reader window) | preset name
+if [[ -n "$REGION" ]]; then
+  if [[ "$REGION" == "auto" ]]; then
+    REGION="$(auto_region "$REGION_MARGIN" "$APP_NAME" "${REGION_MARGIN_TOP:-}")"
+  elif ! validate_region_quiet "$REGION"; then
+    REGION="$(load_region_preset "$REGION")"
+  fi
+fi
+[[ -n "$REGION" ]] || prompt_region
+
+# Save the region actually used as a preset, if requested
+if [[ -n "$SAVE_REGION" ]]; then
+  save_region_preset "$SAVE_REGION" "$REGION"
+fi
 
 run_capture

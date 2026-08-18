@@ -20,11 +20,15 @@
 ### 플래그 모드 (CLI)
 
 ```bash
-bin/ebook-capture --book "책이름" --pages 120 --region "100 100 800 600" --app 1
+bin/ebook-capture --book "책이름" --pages auto --region auto --app 1
 ```
 
+- `--pages`: 숫자 또는 `auto` — `auto`면 페이지 넘김이 멈추면(마지막 페이지) 자동 종료
+- `--region`: `x y w h` 좌표, `auto` (리더 앱 창에서 자동 산출 — 터미널이 전경이어도 안전), 또는 저장한 프리셋 이름
 - `--app`: `1` 또는 `library` (교보도서관) / `2` 또는 `ebook` (교보eBook)
-- 캡처 영역 좌표는 `x y w h` 형식 (x·y: 왼쪽·위에서의 거리, w·h: 너비·높이)
+- `--save-region 이름`: 이번 실행의 영역을 프리셋으로 저장, `--list-regions`로 조회
+- `--resume`: 중단됐던 캡처를 이어서 — 마지막 페이지 다음부터, 영역·앱은 저장값 자동 재사용
+- `--resize 50` / `--gray`: 후처리 — PNG 축소 / 흑백 변환 (파일 크기 절감)
 - 일부 플래그만 지정하면 나머지는 대화형으로 물어봅니다
 - `bin/ebook-capture --help`로 전체 도움말 확인
 
